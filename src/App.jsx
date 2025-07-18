@@ -1,32 +1,53 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+//corretta per accettare ogni argomento
+function debounce(callback, delay) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      callback(...args);
+    }, delay);
+  };
+}
 
 function App() {
   const [inputSearch, setInputSearch] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  useEffect(() => {
-    //questo mi serve qando il campo di ricerca è vuoto
-    const query = inputSearch.trim();
-    if (query === "") {
+  //usato chiamata asincrona e gestrione con try catch
+  const performSearch = useCallback(async (query) => {
+    // Questo mi serve quando il campo di ricerca è vuoto
+    if (query.trim() === "") {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
-    fetch(`http://localhost:3333/products?search=${query}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setSuggestions(data);
-        setShowSuggestions(true);
-        console.log(data)
-      })
-      .catch((err) => {
-        console.error("Errore nella fetch:", err);
-        setSuggestions([]);
-        setShowSuggestions(false);
-      });
-  }, [inputSearch]);
+    try {
+      const res = await fetch(`http://localhost:3333/products?search=${query}`);
+      const data = await res.json();
+      setSuggestions(data);
+      setShowSuggestions(true);
+      console.log(data);
+    } catch (err) {
+      console.error("Errore nella fetch:", err);
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, []);
+
+
+  const getRicerca = useCallback(
+    debounce(performSearch, 500),
+    [performSearch]
+  );
+
+  useEffect(() => {
+
+    getRicerca(inputSearch);
+  }, [inputSearch, getRicerca]);
 
   return (
     <>
@@ -41,9 +62,10 @@ function App() {
 
         {showSuggestions && suggestions.length > 0 && (
           <ul>
-            {suggestions.map((product, index) => (
+            {suggestions.map((product) => (
               <li
-                key={index}
+
+                key={product.name}
                 onClick={() => {
                   setInputSearch(product.name);
                   setSuggestions([]);
